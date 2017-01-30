@@ -70,15 +70,16 @@ load_balancer(void){
   int new_port1, new_port2;
   int flip = 1;
 
-  printf("CEK 0\n");
 
-  new_port1 = rte_eth_from_rings("lb_veth0", &ring_rx1, 1, &ring_tx1, 1, 0);
-  new_port2 = rte_eth_from_rings("lb_veth0", &ring_rx2, 1, &ring_tx2, 1, 0);
+  new_port1 = rte_eth_from_rings("lb_veth1", &ring_rx1, 1, &ring_tx1, 1, 0);
+  new_port2 = rte_eth_from_rings("lb_veth2", &ring_rx2, 1, &ring_tx2, 1, 0);
+  rte_eth_rx_queue_setup(new_port1, 0, 32, 0, NULL, lb_pktmbuf_pool);
+  rte_eth_tx_queue_setup(new_port1, 0, 32, 0, NULL);
+  rte_eth_rx_queue_setup(new_port2, 0, 32, 0, NULL, lb_pktmbuf_pool);
+  rte_eth_tx_queue_setup(new_port2, 0, 32, 0, NULL);
 
-  printf("CEK 1\n");
 
   while(1){
-    printf("CEK 2\n");
     n_pkt = rte_eth_rx_burst((uint8_t) portid, 0, 
               pkts_burst, MAX_PKT_BURST);
 
