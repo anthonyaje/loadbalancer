@@ -8,7 +8,6 @@
 #include <netinet/in.h>
 #include <ctype.h>
 #include <errno.h>
-//#include <iostream>
 
 #include <rte_mbuf.h>
 #include <rte_ring.h>
@@ -30,8 +29,6 @@
 
 static uint16_t nb_rxd = RTE_TEST_RX_DESC_DEFAULT;
 static uint16_t nb_txd = RTE_TEST_TX_DESC_DEFAULT;
-
-//using namespace std;
 
 struct rte_mempool* lb_pktmbuf_pool; 
 struct rte_ring* ring_rx1, *ring_rx2;
@@ -69,15 +66,46 @@ load_balancer(void){
   int ret;
   int new_port1, new_port2;
   int flip = 1;
-
+  unsigned socket_id_1, socket_id_2; 
+  uint8_t n_port;
 
   new_port1 = rte_eth_from_rings("lb_veth1", &ring_rx1, 1, &ring_tx1, 1, 0);
   new_port2 = rte_eth_from_rings("lb_veth2", &ring_rx2, 1, &ring_tx2, 1, 0);
+
+  socket_id_1 = rte_eth_dev_socket_id(new_port1);
+  socket_id_2 = rte_eth_dev_socket_id(new_port2);
+  
+  ret = rte_eth_dev_configure(new_port1, 1, 1, &port_conf);
+  if(ret < 0){
+    rte_exit(EXIT_FAILURE, "Cannot configure device: err=%d, port=%u\n",
+                  ret, (unsigned) new_port1);
+  }
+  ret = rte_eth_dev_configure(new_port2, 1, 1, &port_conf);
+  if(ret < 0){
+    rte_exit(EXIT_FAILURE, "Cannot configure device: err=%d, port=%u\n",
+                  ret, (unsigned) new_port2);
+  }
+
   rte_eth_rx_queue_setup(new_port1, 0, 32, 0, NULL, lb_pktmbuf_pool);
   rte_eth_tx_queue_setup(new_port1, 0, 32, 0, NULL);
+
   rte_eth_rx_queue_setup(new_port2, 0, 32, 0, NULL, lb_pktmbuf_pool);
   rte_eth_tx_queue_setup(new_port2, 0, 32, 0, NULL);
 
+  printf(" - - - -  -  socketid %u | newport1 - - - -  - %u \n", socket_id_1, new_port1);
+  printf(" - - - -  -  socketid %u | newport2 - - - -  - %u \n", socket_id_2, new_port2);
+
+  n_port = rte_eth_dev_count();
+  printf("- - - - - - number of ports %d\n", n_port);
+
+  ret = rte_eth_dev_start(new_port1);
+    if (ret < 0)
+        rte_exit(EXIT_FAILURE, "rte_eth_dev_start:err=%d, port=%u\n",
+              ret, (unsigned) new_port1);
+  ret = rte_eth_dev_start(new_port2);
+    if (ret < 0)
+        rte_exit(EXIT_FAILURE, "rte_eth_dev_start:err=%d, port=%u\n",
+              ret, (unsigned) new_port2);
 
   while(1){
     n_pkt = rte_eth_rx_burst((uint8_t) portid, 0, 
@@ -103,7 +131,6 @@ load_balancer(void){
     } 
     
   }
-    printf("CEK 3\n");
 
 }
 
@@ -120,7 +147,7 @@ void initialize(void){
     portid = 0;
   }
   socket_id = rte_eth_dev_socket_id(portid);
-  printf(" - - --  -  socketid %u\n", socket_id);
+  printf(" - - - -  -  socketid %u | portid - - - -  - %u \n", socket_id, portid);
   
   lb_pktmbuf_pool = rte_pktmbuf_pool_create(MBUF_POOL_NAME, NB_MBUF, 
                             CACHE_SIZE, 0, RTE_MBUF_DEFAULT_BUF_SIZE, socket_id); 
