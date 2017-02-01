@@ -20,7 +20,7 @@
 #include <rte_kni.h>
 #include <rte_log.h>
 #include <rte_malloc.h>
-
+#include <signal.h>
 
 #define MAX_PKT_BURST 32
 #define MBUF_POOL_NAME "lb_mbuf_pool"
@@ -67,6 +67,8 @@ static const struct rte_eth_conf port_conf = {
         .mq_mode = ETH_MQ_TX_NONE,
     },
 };
+unsigned long total_recv0 = 0;
+unsigned long total_rx[2] = {0,0};
 
 struct kni_port_params {
          uint8_t port_id;/* Port ID */
@@ -90,6 +92,21 @@ static int kni_free_kni(uint8_t port_id);
 //static rte_atomic32_t kni_stop = RTE_ATOMIC32_INIT(0);
 
 
+static void 
+signal_handler(int signum){
+          /* When we receive a RTMIN or SIGINT signal, stop kni processing */
+        if (signum == SIGRTMIN || signum == SIGINT){
+                printf("SIGRTMIN is received, and the KNI processing is "
+                                                        "going to stop\n");
+                printf("total_recv0: %lu\n", total_recv0); 
+                printf("total_rx0: %lu\n", total_rx[0]); 
+                printf("total_rx1: %lu\n", total_rx[1]); 
+                //rte_atomic32_inc(&kni_stop);
+                exit(1);
+                return;
+        }
+
+}
 
 static int load_balancer_lcore(__attribute__((unused)) void *dummy){
   load_balancer();
@@ -261,6 +278,8 @@ init_kni(unsigned int n){
 
 int main(int argc, char** argv){
   int ret;
+  
+  signal(SIGINT, signal_handler);  
 
   ret = rte_eal_init(argc, argv);
   if(ret < 0){
@@ -356,13 +375,31 @@ void initialize(void){
 }
 
 static void
+kni_burst_free_mbufs(struct rte_mbuf **pkts, unsigned num)
+{
+        unsigned i;
+
+        if (pkts == NULL)
+                return;
+
+        for (i = 0; i < num; i++) {
+                rte_pktmbuf_free(pkts[i]);
+                pkts[i] = NULL;
+        }
+}
+
+
+static void
 load_balancer(void){
   struct rte_mbuf *pkts_burst[MAX_PKT_BURST];
   uint16_t n_pkt;
-  /*
+  
   int ret;
+  int flip = 0;
+  
+  struct kni_port_params **params = kni_port_params_array;
+  /*
   int new_port1, new_port2;
-  int flip = 1;
   unsigned socket_id_1, socket_id_2; 
   uint8_t n_port;
 
@@ -407,29 +444,26 @@ load_balancer(void){
   while(1){
     n_pkt = rte_eth_rx_burst((uint8_t) portid, 0, 
               pkts_burst, MAX_PKT_BURST);
+    total_recv0 += n_pkt;
+ 
+/*
     n_pkt = n_pkt;
-    //printf("n_pkt: %u\n", (unsigned int) n_pkt);
+    printf("n_pkt: %u\n", (unsigned int) n_pkt);
+    printf("flip: %d\n", flip);
+    int ret = 0;
+     do {
+         rte_pktmbuf_free(pkts_burst[ret]);
+     }while(++ret < n_pkt); 
 
-    /*
-    if(flip){
-      ret = rte_eth_tx_burst(new_port1,  (uint16_t) 0, pkts_burst, n_pkt);
-      if (unlikely(ret < n_pkt)) {
-          do {
-              rte_pktmbuf_free(pkts_burst[ret]);
-          } while (++ret < n_pkt);
-      }
-      flip = 0;
+*/
+    ret = rte_kni_tx_burst(params[0]->kni[flip], pkts_burst, n_pkt);
+    total_rx[flip] += ret;
+    //rte_kni_handle_request(params[0]->kni[flip]);
+    if (unlikely(ret < n_pkt)) {
+      kni_burst_free_mbufs(&pkts_burst[ret], n_pkt - ret);
     }
-    else{  
-      ret = rte_eth_tx_burst(new_port2,  (uint16_t) 0, pkts_burst, n_pkt);
-      if (unlikely(ret < n_pkt)) {
-          do {
-              rte_pktmbuf_free(pkts_burst[ret]);
-          } while (++ret < n_pkt);
-      }
-      flip = 1;
-    }
-    */ 
+    
+    flip ^= 1;
     
   }
 }
