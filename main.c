@@ -458,7 +458,7 @@ load_balancer(void){
 */
     ret = rte_kni_tx_burst(params[0]->kni[flip], pkts_burst, n_pkt);
     total_rx[flip] += ret;
-    //rte_kni_handle_request(params[0]->kni[flip]);
+    rte_kni_handle_request(params[0]->kni[flip]);
     if (unlikely(ret < n_pkt)) {
       kni_burst_free_mbufs(&pkts_burst[ret], n_pkt - ret);
     }
