@@ -30,7 +30,7 @@
 #define RING_SIZE 128
 #define CACHE_SIZE 32 
 #define MAX_PACKET_SZ           2048
-
+#define NUM_KNI_INTF 3
 
 
 #define KNI_MAX_KTHREAD 32
@@ -48,8 +48,6 @@ static uint16_t nb_rxd = RTE_TEST_RX_DESC_DEFAULT;
 static uint16_t nb_txd = RTE_TEST_TX_DESC_DEFAULT;
 
 struct rte_mempool* lb_pktmbuf_pool; 
-struct rte_ring* ring_rx1, *ring_rx2;
-struct rte_ring* ring_tx1, *ring_tx2;
 int lcore_id;
 uint8_t n_port, portid;
 
@@ -256,7 +254,7 @@ static void
 init_kni(unsigned int n){
   
   uint8_t port_id = portid; 
-  
+  int i;
   memset(&kni_port_params_array, 0, sizeof(kni_port_params_array));
   kni_port_params_array[port_id] =
                         rte_zmalloc("KNI_port_params",
@@ -267,12 +265,13 @@ init_kni(unsigned int n){
   params[port_id]->port_id = port_id;
   params[port_id]->lcore_rx = (uint8_t) 1;
   params[port_id]->lcore_tx = (uint8_t) 1;
-  params[port_id]->nb_kni = 2;
-  params[port_id]->nb_lcore_k = 2;
-  params[port_id]->lcore_k[0] = 1;
-  params[port_id]->lcore_k[1] = 2;
+  params[port_id]->nb_kni = n;
+  params[port_id]->nb_lcore_k = n;
+  for(i=0; i<n; i++){
+    params[port_id]->lcore_k[i] = i+1;
+  }
+
   rte_kni_init(n);
-  
 }
 
 int main(int argc, char** argv){
@@ -289,8 +288,10 @@ int main(int argc, char** argv){
 
   initialize();  
   
-  init_kni(2);
+  init_kni(NUM_KNI_INTF);
   kni_alloc(portid);
+
+  }
    
   n_port = rte_eth_dev_count();
   printf("- - - - - - number of ports %d\n", n_port);
