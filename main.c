@@ -44,7 +44,6 @@
 /* Macros for printing using RTE_LOG */
 #define RTE_LOGTYPE_APP RTE_LOGTYPE_USER1
 
-
 static uint16_t nb_rxd = RTE_TEST_RX_DESC_DEFAULT;
 static uint16_t nb_txd = RTE_TEST_TX_DESC_DEFAULT;
 
@@ -337,18 +336,6 @@ void initialize(void){
   if(lb_pktmbuf_pool == NULL)
     rte_exit(EXIT_FAILURE, "Cannot init mbuf pool\n");
 
-//  ring_rx1 = rte_ring_create("ring_rx1", RING_SIZE, socket_id, 
-//                RING_F_SP_ENQ | RING_F_SC_DEQ);            /* single prod, single cons */
-  
-//  ring_tx1 = rte_ring_create("ring_tx1", RING_SIZE, socket_id, 
-//                RING_F_SP_ENQ | RING_F_SC_DEQ);            /* single prod, single cons */
-//  ring_rx2 = rte_ring_create("ring_rx2", RING_SIZE, socket_id, 
-//                RING_F_SP_ENQ | RING_F_SC_DEQ);            /* single prod, single cons */
-  
-//  ring_tx2 = rte_ring_create("ring_tx2", RING_SIZE, socket_id, 
-//                RING_F_SP_ENQ | RING_F_SC_DEQ);            /* single prod, single cons */
-
-
   ret = rte_eth_dev_configure(portid, 1, 1, &port_conf);
   if(ret < 0){
     rte_exit(EXIT_FAILURE, "Cannot configure device: err=%d, port=%u\n",
@@ -398,64 +385,12 @@ load_balancer(void){
   int flip = 0;
   
   struct kni_port_params **params = kni_port_params_array;
-  /*
-  int new_port1, new_port2;
-  unsigned socket_id_1, socket_id_2; 
-  uint8_t n_port;
 
-  new_port1 = rte_eth_from_rings("lb_veth1", &ring_rx1, 1, &ring_tx1, 1, 0);
-  new_port2 = rte_eth_from_rings("lb_veth2", &ring_rx2, 1, &ring_tx2, 1, 0);
-
-  socket_id_1 = rte_eth_dev_socket_id(new_port1);
-  socket_id_2 = rte_eth_dev_socket_id(new_port2);
-  
-  ret = rte_eth_dev_configure(new_port1, 1, 1, &port_conf);
-  if(ret < 0){
-    rte_exit(EXIT_FAILURE, "Cannot configure device: err=%d, port=%u\n",
-                  ret, (unsigned) new_port1);
-  }
-  ret = rte_eth_dev_configure(new_port2, 1, 1, &port_conf);
-  if(ret < 0){
-    rte_exit(EXIT_FAILURE, "Cannot configure device: err=%d, port=%u\n",
-                  ret, (unsigned) new_port2);
-  }
-
-  rte_eth_rx_queue_setup(new_port1, 0, 32, 0, NULL, lb_pktmbuf_pool);
-  rte_eth_tx_queue_setup(new_port1, 0, 32, 0, NULL);
-
-  rte_eth_rx_queue_setup(new_port2, 0, 32, 0, NULL, lb_pktmbuf_pool);
-  rte_eth_tx_queue_setup(new_port2, 0, 32, 0, NULL);
-
-  printf(" - - - -  -  socketid %u | newport1 - - - -  - %u \n", socket_id_1, new_port1);
-  printf(" - - - -  -  socketid %u | newport2 - - - -  - %u \n", socket_id_2, new_port2);
-
-  n_port = rte_eth_dev_count();
-  printf("- - - - - - number of ports %d\n", n_port);
-
-  ret = rte_eth_dev_start(new_port1);
-    if (ret < 0)
-        rte_exit(EXIT_FAILURE, "rte_eth_dev_start:err=%d, port=%u\n",
-              ret, (unsigned) new_port1);
-  ret = rte_eth_dev_start(new_port2);
-    if (ret < 0)
-        rte_exit(EXIT_FAILURE, "rte_eth_dev_start:err=%d, port=%u\n",
-              ret, (unsigned) new_port2);
-  */
   while(1){
     n_pkt = rte_eth_rx_burst((uint8_t) portid, 0, 
               pkts_burst, MAX_PKT_BURST);
     total_recv0 += n_pkt;
- 
-/*
-    n_pkt = n_pkt;
-    printf("n_pkt: %u\n", (unsigned int) n_pkt);
-    printf("flip: %d\n", flip);
-    int ret = 0;
-     do {
-         rte_pktmbuf_free(pkts_burst[ret]);
-     }while(++ret < n_pkt); 
-
-*/
+    
     ret = rte_kni_tx_burst(params[0]->kni[flip], pkts_burst, n_pkt);
     total_rx[flip] += ret;
     rte_kni_handle_request(params[0]->kni[flip]);
