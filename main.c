@@ -30,7 +30,7 @@
 #define RING_SIZE 128
 #define CACHE_SIZE 32 
 #define MAX_PACKET_SZ           2048
-#define NUM_KNI_INTF 3
+#define NUM_KNI_INTF 4
 
 
 #define KNI_MAX_KTHREAD 32
@@ -49,7 +49,7 @@ static uint16_t nb_txd = RTE_TEST_TX_DESC_DEFAULT;
 
 struct rte_mempool* lb_pktmbuf_pool; 
 int lcore_id;
-uint8_t n_port, portid;
+static uint8_t n_port, portid;
 
 static const struct rte_eth_conf port_conf = {
     .rxmode = {
@@ -254,7 +254,7 @@ static void
 init_kni(unsigned int n){
   
   uint8_t port_id = portid; 
-  int i;
+  unsigned int i;
   memset(&kni_port_params_array, 0, sizeof(kni_port_params_array));
   kni_port_params_array[port_id] =
                         rte_zmalloc("KNI_port_params",
@@ -291,7 +291,6 @@ int main(int argc, char** argv){
   init_kni(NUM_KNI_INTF);
   kni_alloc(portid);
 
-  }
    
   n_port = rte_eth_dev_count();
   printf("- - - - - - number of ports %d\n", n_port);
@@ -303,7 +302,7 @@ int main(int argc, char** argv){
             printf("eal_wait<0\n");
             return -1;
         }
-    }   
+  }   
   
   n_port = rte_eth_dev_count();
   printf("- - - - - - number of ports %d\n", n_port);
@@ -384,6 +383,7 @@ load_balancer(void){
   
   int ret;
   int flip = 0;
+//  int flip = NUM_KNI_INTF;
   
   struct kni_port_params **params = kni_port_params_array;
 
@@ -399,7 +399,8 @@ load_balancer(void){
       kni_burst_free_mbufs(&pkts_burst[ret], n_pkt - ret);
     }
     
-    flip ^= 1;
+//    flip ^= 1;
+    flip = (flip + 1) % NUM_KNI_INTF;
     
   }
 }
